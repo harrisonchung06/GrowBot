@@ -6,3 +6,7 @@ CPP Robotics Project
 - Danian:  Print parts (harrison has CAD files, print @25% infill)
 - Hai:  version 2 of motor controller (controls two steppers at once instead of one)
 - Harrison:  threading for parallel camera processing
+
+#### Unassigned
+- Design end effector CAD
+  - write script for controlling it (stepper motor)
