@@ -3,7 +3,7 @@ import numpy as np
 
 red = {
     "hue" : [np.array([0, 10]), np.array([170, 180])],
-    "saturation" : np.array([100, 255]),
+    "saturation" : np.array([150, 255]),
     "value" : np.array([140, 255])
 }
 
@@ -39,13 +39,38 @@ def normalize_brightness(image):
 
     return bgr_normalized
 
-def draw_contour_centers(image, contours):
+def contour_centers(image, contours):
+    center_coords = []
     for contour in contours:
         M = cv2.moments(contour)
         center_x = int(M['m10']/M['m00'])
         center_y = int(M['m01']/M['m00'])
 
         cv2.circle(image, (center_x, center_y), 3, (255, 0, 0), -1)
+        center_coords.append((center_x, center_y))
+    return center_coords
+
+
+def filter_contours(contours):
+    filtered = []
+    for contour in contours:
+        if (cv2.contourArea(contour) >= 2000):
+            filtered.append(contour)
+    return filtered
+
+def detect_blobs(image):
+    greyscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    cv2.imshow("grey", greyscale)
+    _, threshold = cv2.threshold(greyscale, 10, 255, cv2.THRESH_BINARY)
+    cv2.imshow("threshold", threshold)
+
+    # dilate threshold image to remove small holes and combine regions for more accurate contours
+    kernel = np.ones((7,7), np.uint8)
+    threshold = cv2.dilate(threshold, kernel)
+
+    # get contours
+    c,_ = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    return c
 
 cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -70,21 +95,12 @@ while run:
     red_pixels = detect_red_pixels(normalized_image)
 
     # blob detection
-    greyscale = cv2.cvtColor(red_pixels, cv2.COLOR_BGR2GRAY)
-    cv2.imshow("grey", greyscale)
-    _, threshold = cv2.threshold(greyscale, 10, 255, cv2.THRESH_BINARY)
-    cv2.imshow("threshold", threshold)
-
-    # dilate threshold image to remove small holes and combine regions for more accurate contours
-    kernel = np.ones((7,7), np.uint8)
-    threshold = cv2.dilate(threshold, kernel)
-
-    # get contours
-    contours,_ = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
+    contours = detect_blobs(red_pixels)
+    
     if len(contours) > 0:
-        cv2.drawContours(image, contours, -1, (0, 255, 0), 5)
-        draw_contour_centers(image, contours)
+        contours_filtered = filter_contours(contours)
+        centers = contour_centers(image, contours_filtered)
+        cv2.drawContours(image, contours_filtered, -1, (0, 255, 0), 5)
 
     # show webcam feed and red pixel mask
     cv2.imshow('Webcam Feed', image)
