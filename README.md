@@ -55,8 +55,8 @@ This repository includes everything needed to understand, replicate, and improve
 ### Setup Instructions
 
 ```bash
-git clone 
-cd 
+git clone https://github.com/harrisonchung06/GrowBot.git
+cd code
 pip install -r requirements.txt
 python main.py
 ```
