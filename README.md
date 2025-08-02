@@ -50,9 +50,25 @@ This repository includes everything needed to understand, replicate, and improve
 - Python 3.9+  
 - OpenCV  
 - NumPy  
-- 3D printer or access to CNC fabrication  
+- 3D printer
 
-### Setup Instructions
+### Build Instructions
+- Find the Final Assembly file
+- Cut all aluminium extrusions and belts to size defined in the assembly
+- Attach supporting brackets and plates to the frame 
+- Print all components found in the assembly that are not aluminium 
+- Assemble motor carriage
+  - Assemble the Z Axis 
+  - Assemble the Y Axis
+  - Attach the Z Axis to the Y Axis
+  - Assemble the X Axis
+  - Attach the YZ Axis assembly to the X Axis
+  - Attach the XYZ Axis assembly to the frame
+- Solder limit switches and attach to frame with adhesive
+- Assemble and attach the claw
+- Assemble and attach the Camera Mount 
+
+### Code Setup Instructions
 
 ```bash
 git clone https://github.com/harrisonchung06/GrowBot.git
