@@ -15,6 +15,7 @@ def get_latest_frame(queue):
 def get_score(threads, camera_indices):
     infos = []
     squared_dists = [0] * len(camera_indices)
+    side_squared_dists = [0] * len(camera_indices)
     #Get info 
     for thread in threads:
         latest_info = get_latest_frame(thread.queue)
@@ -46,6 +47,12 @@ def get_score(threads, camera_indices):
             camera_center = infos[i][2]
             cam_y = camera_center[0]
             cam_z = camera_center[1]
+            
+            if i == 0: #Left cam min right 
+                camera_side_y = 0
+            elif i ==1: #Rigth cam min left 
+                camera_side_y = 2*cam_y
+            
             try:
                 largest_center = infos[i][0][largest_indices[i]]
                 
@@ -57,18 +64,33 @@ def get_score(threads, camera_indices):
             large_y = largest_center[0]
             large_z = largest_center[1]
 
-            #print(f'Cam_x {cam_x}, large_x {large_x}, cam_y {cam_y}, large_y {large_y}')
+            #print(f'Cam_y {cam_y}, large_y {large_y}, cam_z {cam_z}, large_z {large_z}')
+            #print(f' SIDE Cam_y {camera_side_y}, large_y {large_y}, cam_z {cam_z}, large_z {large_z}')
             squared_dist = (cam_y - large_y)**2 + (cam_z - large_z)**2
             squared_dists[i] = squared_dist
-        print(f'squared distances {squared_dists}')
 
-        valid_dists = [d for d in squared_dists if not math.isinf(d)]
-        if len(valid_dists) == len(camera_indices):
+            side_squared_dist = (camera_side_y - large_y)**2 + (cam_z - large_z)**2
+            side_squared_dists[i] = side_squared_dist
+        
+
+        valid_dists = []
+        for i in range(len(squared_dists)):
+            if not math.isinf(squared_dists[i]) and not squared_dists[i] == 0:
+                valid_dists.append(squared_dists[i])
+        valid_side_dists = []
+        for i in range(len(side_squared_dists)):
+            if not math.isinf(side_squared_dists[i]) and not side_squared_dists[i] == 0:
+                valid_side_dists.append(side_squared_dists[i])
+        
+        print(f'valid distances {valid_dists}')
+        print(f'valid side dists {valid_side_dists}')
+
+        if len(valid_dists) == 2:
             print(f'both cams ')
             return sum(valid_dists)/len(valid_dists)
         elif len(valid_dists) == 1:
-            print(f'one cam {valid_dists[0] * 1e6}')
-            return valid_dists[0] * 1e6
+            print(f'one cam {valid_side_dists[0] * 1e3}')
+            return valid_side_dists[0] * 1e3
         else:
             print(f'no cam')
             return float('inf')
@@ -77,7 +99,7 @@ def get_score(threads, camera_indices):
 
 def main():
     # Camera setup
-    camera_indices = [1, 2]  
+    camera_indices = [0,1]  
     threads = []
     for index in camera_indices:
         thread = CameraThread(index)
@@ -98,10 +120,9 @@ def main():
     current_pos = center_pos.copy()
 
     # Monte Carlo parameters
-    stop_score = 5000 #~50 mm away from the fruit stem 
-    tolerance = 1000
+    stop_score = 15000 #~50 mm away from the fruit stem 
     step_per_mm = 50.93
-    max_iterations = 30
+    max_iterations = 40
     temp = 1000  # Initial temperature
     cooling_rate = 0.97
     step_size = 5000  # Initial step size
@@ -110,12 +131,8 @@ def main():
     best_pos = current_pos.copy()
 
     while True:
-        if best_score > 65000:
-            step_size = 5000
-            controller.move_to_position(*best_pos, 5000, 5000, 5000)
-        else:
-            step_size = 800
-            controller.move_to_position(*best_pos, 5000, 5000, 5000)
+        temp=1000
+        step_size = step_size + 1000
         for iteration in range(max_iterations):
             
             current_score = get_score(threads, camera_indices)
@@ -125,7 +142,7 @@ def main():
                 neighbor_pos = [
                     current_pos[0] + random.randint(-step_size, step_size),
                     current_pos[1] + random.randint(-step_size, step_size),
-                    current_pos[2] + random.randint(-step_size, step_size)
+                    current_pos[2] + random.randint(-int(step_size*0.5), int(step_size*0.5))
                 ]
                 
                 # Ensure within bounds
@@ -159,18 +176,13 @@ def main():
                     controller.move_step(-int(50*step_per_mm), 0,0)
                     controller.move_claw(79)
                     controller.move_step(0,0,100)
-                    #Go to collection point or whatever 
+                    #Go to collection point  
                     print("Fruit grabbed!")
                     break
             
             # Accept or reject move
             if new_score < current_score or random.random() < accept_prob:
                 current_pos = neighbor_pos
-                score_diff = current_score - new_score
-
-                if score_diff > 1e6:
-                    step_size = int(max(min_step, step_size * 0.5))
-                    #exploit
             else:
                 # Rejected - move back
                 controller.move_to_position(*current_pos, 5000, 5000, 5000)
@@ -178,9 +190,12 @@ def main():
 
             # Cooling schedule
             temp *= cooling_rate
-            step_size = int(max(min_step, step_size * 0.97))
+            step_size = int(max(min_step, step_size * 0.95))
             
             print(f"Iteration {iteration}: Temp={temp:.1f}, Step={step_size:.0f}, Current Score={current_score:.1f}, Best Score = {best_score:.1f}")
+        controller.move_to_position(*best_pos, 5000, 5000, 5000)
+        
+
 
 if __name__ == '__main__':
     main()
